@@ -72,6 +72,9 @@ func New(config Config) (*Agent, error) {
 			return nil, err
 		}
 	}
+
+	go a.serve()
+
 	return a, nil
 }
 
@@ -191,6 +194,14 @@ func (a *Agent) Shutdown() error {
 		if err := fn(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (a *Agent) serve() error {
+	if err := a.mux.Serve(); err != nil {
+		_ = a.Shutdown()
+		return err
 	}
 	return nil
 }
