@@ -17,6 +17,7 @@ import (
 	api "github.com/antpard/proglog/api/v1"
 	"github.com/antpard/proglog/internal/agent"
 	"github.com/antpard/proglog/internal/config"
+	"github.com/antpard/proglog/internal/loadbalance"
 )
 
 func TestAgent(t *testing.T) {
@@ -92,7 +93,20 @@ func TestAgent(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
+	time.Sleep(3 * time.Second)
+
 	consumeResponse, err := leaderClient.Consume(
+		context.Background(),
+		&api.ConsumeRequest{
+			Offset: produceResponse.Offset,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, consumeResponse.Record.Value, []byte("foo"))
+
+	followerClient := client(t, agents[1], peerTLSConfig)
+	consumeResponse, err = followerClient.Consume(
 		context.Background(),
 		&api.ConsumeRequest{
 			Offset: produceResponse.Offset,
@@ -124,7 +138,8 @@ func client(
 	rpcAddr, err := agent.Config.RPCAddr()
 	require.NoError(t, err)
 	conn, err := grpc.Dial(fmt.Sprintf(
-		"%s",
+		"%s:///%s",
+		loadbalance.Name,
 		rpcAddr,
 	), opts...)
 	require.NoError(t, err)
